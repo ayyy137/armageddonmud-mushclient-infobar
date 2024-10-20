@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- Saved on Tuesday, October 19, 2024, 6:38 PM -->
+<!-- MuClient version 4.73 -->
+
+<muclient>
+<plugin
+   name="Armgeddonmud_Infobar"
+   author="Agent_137"
+   id="ea3b8b6b2d305d46439d7806"
+   language="Lua"
+   purpose="Displays vital stats. Enter InstallInfobar to setup your character's prompt."
+   date_written="2024-10-19 18:38:00"
+   requires="4.73"
+   version="3.3"
+   >
+
+</plugin>
+
+
+<!--  Get our standard constants -->
+
+<include name="constants.lua"/>
+
+<!--  Triggers  -->
+
+<triggers>
+  <trigger
+   enabled="y"
+   keep_evaluating="y"
+   match="^PROMPT_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_LINETWO$"
+   name="DetailedInfobarTriggerGag2"
+   omit_from_log="y"
+   omit_from_output="y"
+   regexp="y"
+   sequence="20"
+   variable="DetailedInfobarTriggerGag2"
+  >
+  </trigger>
+  <trigger
+   enabled="y"
+   keep_evaluating="y"
+   match="^PROMPT_([^_]+)_([^_]+)_([^_]+)_([^_]+)_LINE3$"
+   name="DetailedInfobarTriggerGag3"
+   omit_from_log="y"
+   omit_from_output="y"
+   regexp="y"
+   sequence="20"
+   variable="DetailedInfobarTriggerGag3"
+  >
+  </trigger>
+  <trigger
+   enabled="y"
+   lines_to_match="3"
+   keep_evaluating="y"
+   match="^PROMPT_([^_]+)_([^_]+)_([^_]+)_riding: ([^_]+)_([^_]+)_LINEONE\nPROMPT_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_LINETWO\nPROMPT_([^_]+)_([^_]+)_([^_]+)_([^_]+)_LINE3$"
+   multi_line="y"
+   name="DetailedInfobarTrigger"
+   regexp="y"
+   script="DetailedInfobar"
+   sequence="10"
+   variable="DetailedInfobarTrigger"
+  >
+  </trigger>
+  <trigger
+   enabled="y"
+   keep_evaluating="y"
+   match="^PROMPT_([^_]+)_([^_]+)_([^_]+)_riding: ([^_]+)_([^_]+)_LINEONE$"
+   name="DetailedInfobarTriggerGag1"
+   omit_from_log="y"
+   omit_from_output="y"
+   regexp="y"
+   sequence="20"
+   variable="DetailedInfobarTriggerGag1"
+  >
+  </trigger>
+</triggers>
+
+<!--  Script  -->
+
+
+<script>
+<![CDATA[
+--[[
+###INSTALLATION INSTRUCTIONS###
+
+Step 1: Save this file to your hard drive. I recommend the MushClient/worlds/plugins directory.
+
+Steps 2-4: Hit shift-ctrl-p to open the plugins menu. Click the "Add" button. Navigate to where you saved this file and select it. Click Close.
+
+Step 5: Log into your Armageddon character and send this command: InstallInfobar
+
+Options:
+ManaOn displays your mana values
+ManaOff hides them.
+SwapInfobar swaps between the Detailed and Descriptive versions...
+    Detailed offers a detailed list of numbers.
+    Descriptive drops all numbers and instead says stuff like this:
+        "You're hurting, exhausted, woozy, armed, mounted, and set for running. Also you're Fighting: Amos. It's late afternoon."
+
+Note: If you use the status prompt, this will overwrite it, hide it, suck all the information out of its brains, and take its boots. And because it uses your prompt, when your character dies you will need to send the InstallInfobar command again once you're in your new character.
+
+]]--
+
+-- Setup global settings and their default values
+ShowMana = false
+--Setting up default look
+defaultBg = "whitesmoke"
+defaultCol = "black"
+defaultSize = 10
+
+function InstallInfobar()
+    -- Set the prompt in the game. 
+    -- Notice the \\n to create linebreaks in the prompt. The extra \ is needed otherwise the SendImmediate command will hit the enter key, so to speak, when it reads \n.
+    SendImmediate ("prompt PROMPT_%a_%o_%O_%k_%e_LINEONE\\nPROMPT_%E_%A_%w_%h_%H_%t_%T_%v_%V_%m_%M_LINETWO\\nPROMPT_%s_manaoff_%x_%X_LINE3\\n")
+    ShowInfoBar (true)
+    Tell ("Enjoy this infobar for Armageddon.\n")
+    Tell ("Additional commands are ManaOn, ManaOff, and SwapInfobar which toggles between showing you numbers and adjectives.\n")
+    -- Send harmless command to trigger the prompt to update in the game
+    SendImmediate ("inv")
+
+end --end InstallInfobar
+
+function SwapInfobar()
+    local InfobarTriggerScript = GetTriggerOption ("DetailedInfobarTrigger", "script")
+
+    if InfobarTriggerScript == "DetailedInfobar" then
+        SetTriggerOption ("DetailedInfobarTrigger", "script", "DescriptiveInfobar")
+        Tell("Swapped to the descriptive infobar")
+        SendImmediate ("inv")
+    elseif InfobarTriggerScript == "DescriptiveInfobar" then
+        SetTriggerOption ("DetailedInfobarTrigger", "script", "DetailedInfobar")
+        Tell("Swapped to the detailed infobar")
+        SendImmediate ("inv")
+    elseif InfobarTriggerScript == "Infobar" then
+        SetTriggerOption ("DetailedInfobarTrigger", "script", "DetailedInfobar")
+        Tell("Switching back from the test infobar.")
+        SendImmediate ("inv")
+    else Tell("Can't swap because of unexpected trigger settings.")
+    end
+end --end SwapInfobar
+
+function OnPluginCommandEntered(sText)
+    if sText == "SwapInfobar" then SwapInfobar()
+    elseif sText == "ManaOff" then ManaOff()
+    elseif sText == "ManaOn" then ManaOn()
+    elseif sText == "InstallInfobar" then InstallInfobar()
+    else return sText
+    end
+    -- the function hasn't already returned so a match occurred. remove it from the command line.
+    return "\t"
+end
+
+function ManaOff()
+    SendImmediate ("prompt PROMPT_%a_%o_%O_%k_%e_LINEONE\\nPROMPT_%E_%A_%w_%h_%H_%t_%T_%v_%V_%m_%M_LINETWO\\nPROMPT_%s_manaoff_%x_%X_LINE3\\n")
+    ShowMana = false
+    Tell("Ok, mana values are hidden.")
+    SendImmediate ("inv")
+end
+
+function ManaOn()
+    SendImmediate ("prompt PROMPT_%a_%o_%O_%k_%e_LINEONE\\nPROMPT_%E_%A_%w_%h_%H_%t_%T_%v_%V_%m_%M_LINETWO\\nPROMPT_%s_manaon_%x_%X_LINE3\\n")
+    ShowMana = true
+    Tell("Ok, showing mana values.")
+    SendImmediate ("inv")
+end
+
+function DetailedInfobar(thename, theoutput, wildcards)
+
+--Now creating variables with "local" command then filling them with the data from the prompt and trigger:
+--The numbers here match the corresponding entry into your prompt. i.e. %a (accent) is first, so it becomes wildcards[1], %o (language) is wildcards[2]
+--But it doesn't get assigned a number until it passes through the regex in the trigger:  which is why you can't change one without changing all three.
+--From here on out, the info from your prompt is contained in the variables created below. i.e. your current health, %h from your prompt, is stored in CurrentHealth.
+local CurrentAccent
+CurrentAccent = wildcards [1]
+local CurrentLanguage
+CurrentLanguage = wildcards [2]
+local CurrentMood
+CurrentMood = wildcards [3]
+local CurrentRiding
+CurrentRiding = wildcards [4]--used by default.
+local CurrentTime
+CurrentTime = wildcards [5]--used by default.
+local CurrentEncumbrance
+CurrentEncumbrance = wildcards [6]
+local CurrentArmed
+CurrentArmed = wildcards [7]--used by default.
+local CurrentSpeed
+CurrentSpeed = wildcards [8]--used by default.
+local CurrentHealth
+CurrentHealth = tonumber(wildcards [9])--used by default.
+local CurrentHealthMax
+CurrentHealthMax = tonumber(wildcards [10])--used by default.
+local CurrentStun
+CurrentStun = tonumber(wildcards [11])--used by default.
+local CurrentStunMax
+CurrentStunMax = tonumber(wildcards [12])--used by default.
+local CurrentStamina
+CurrentStamina = tonumber(wildcards [13])--used by default.
+local CurrentStaminaMax
+CurrentStaminaMax = tonumber(wildcards [14])--used by default.
+local CurrentMana
+CurrentMana = tonumber(wildcards [15])--used by default.
+local CurrentManaMax
+CurrentManaMax = tonumber(wildcards [16])--used by default.
+local CurrentPosition
+CurrentPosition = wildcards [17]--used by default.
+local DisplayMana
+DisplayMana = wildcards [18]-- string used to toggle mana display
+local CurrentFocus
+CurrentFocus = tonumber(wildcards [19])--used by default.
+local CurrentFocusMax
+CurrentFocusMax = tonumber(wildcards [20])--used by default.
+
+
+--Setting up default look
+InfoClear ()
+InfoBackground(defaultBg)
+InfoColour(defaultCol)
+InfoFont ("",defaultSize,1)
+
+--Add a Text Variable - in the line after next, replace 'TextVariable' with the variable you want to add from the list above. Then uncomment them both.
+--InfoColour ("black")
+--Info ("abbreviation",TextVariable)
+
+--CurrentHealth
+if (CurrentHealth/CurrentHealthMax) < 20/100 then
+InfoColour ("crimson")
+elseif (CurrentHealth/CurrentHealthMax) < 40/100 then
+InfoColour ("firebrick")
+elseif (CurrentHealth/CurrentHealthMax) < 70/100 then
+InfoColour ("mediumvioletred")
+elseif (CurrentHealth/CurrentHealthMax) < 100/100 then
+InfoColour ("darkgreen")
+elseif CurrentHealth then
+InfoColour ("black")
+end
+Info ("Hp:",CurrentHealth)
+
+--Uncomment the next line and comment in the following that deal with the max value if you want to remove the max but keep the current value.
+--Info (" ")
+--following 7 lines will add the corresponding max value to the display.
+if CurrentHealthMax then
+InfoColour ("black")
+Info ("/",CurrentHealthMax," ")
+else
+InfoColour ("black")
+Info (" ")
+end
+--End CurrentHealth with Max
+
+if (DisplayMana == "manaon") then
+--CurrentMana
+if (CurrentMana/CurrentManaMax) < 20/100 then
+InfoColour ("crimson")
+elseif (CurrentMana/CurrentManaMax) < 40/100 then
+InfoColour ("firebrick")
+elseif (CurrentMana/CurrentManaMax) < 70/100 then
+InfoColour ("mediumvioletred")
+elseif (CurrentMana/CurrentManaMax) < 100/100 then
+InfoColour ("darkgreen")
+elseif CurrentMana then
+InfoColour ("black")
+end
+Info ("Ma:",CurrentMana)
+
+--Uncomment the next line and comment in the following that deal with the max value if you want to remove the max but keep the current value.
+--Info (" ")
+--following 7 lines will add the corresponding max value to the display.
+if CurrentManaMax then
+InfoColour ("black")
+Info ("/",CurrentManaMax," ")
+else
+InfoColour ("black")
+Info (" ")
+end
+--End CurrentMana with Max
+end
+
+--CurrentStun
+if (CurrentStun/CurrentStunMax) < 20/100 then
+InfoColour ("crimson")
+elseif (CurrentStun/CurrentStunMax) < 40/100 then
+InfoColour ("firebrick")
+elseif (CurrentStun/CurrentStunMax) < 70/100 then
+InfoColour ("mediumvioletred")
+elseif (CurrentStun/CurrentStunMax) < 90/100 then
+InfoColour ("darkgreen")
+elseif CurrentStun then
+InfoColour ("black")
+end
+Info ("Su:",CurrentStun)
+
+--Uncomment the next line and comment in the following that deal with the max value if you want to remove the max but keep the current value.
+--Info (" ")
+--following 7 lines will add the corresponding max value to the display.
+if CurrentStunMax then
+InfoColour ("black")
+Info ("/",CurrentStunMax," ")
+else
+InfoColour ("black")
+Info (" ")
+end
+--End CurrentStun with Max
+
+--CurrentFocus
+if (CurrentFocus/CurrentFocusMax) < 20/100 then
+InfoColour ("crimson")
+elseif (CurrentFocus/CurrentFocusMax) < 40/100 then
+InfoColour ("firebrick")
+elseif (CurrentFocus/CurrentFocusMax) < 70/100 then
+InfoColour ("mediumvioletred")
+elseif (CurrentFocus/CurrentFocusMax) < 90/100 then
+InfoColour ("darkgreen")
+elseif CurrentFocus then
+InfoColour ("black")
+end
+Info ("Fc:",CurrentFocus)
+
+--Uncomment the next line and comment in the following that deal with the max value if you want to remove the max but keep the current value.
+--Info (" ")
+--following 7 lines will add the corresponding max value to the display.
+if CurrentFocusMax then
+InfoColour ("black")
+Info ("/",CurrentFocusMax," ")
+else
+InfoColour ("black")
+Info (" ")
+end
+--End CurrentFocus with Max
+
+--CurrentStamina
+if (CurrentStamina/CurrentStaminaMax) < 20/100 then
+InfoColour ("crimson")
+elseif (CurrentStamina/CurrentStaminaMax) < 40/100 then
+InfoColour ("firebrick")
+elseif (CurrentStamina/CurrentStaminaMax) < 70/100 then
+InfoColour ("mediumvioletred")
+elseif (CurrentStamina/CurrentStaminaMax) < 90/100 then
+InfoColour ("darkgreen")
+elseif CurrentStamina then
+InfoColour ("black")
+end
+Info ("Sa:",CurrentStamina)
+
+--Uncomment the next line and comment in the following that deal with the max value if you want to remove the max but keep the current value.
+--Info (" ")
+--following 7 lines will add the corresponding max value to the display.
+if CurrentStaminaMax then
+InfoColour ("black")
+Info ("/",CurrentStaminaMax," ")
+else
+InfoColour ("black")
+Info (" ")
+end
+--End CurrentStamina with Max
+
+--Adding Extra Spacing
+InfoColour ("black")
+Info (" | ")
+
+--Time of Day
+InfoColour ("black")
+if CurrentTime == "dusk" then
+InfoColour ("firebrick")
+Info (CurrentTime, " ")
+elseif CurrentTime == "late afternoon" then
+InfoColour ("mediumvioletred")
+Info (CurrentTime , " ")
+elseif CurrentTime == "unknown" then
+InfoColour ("black")
+Info ("underground", " ")
+elseif CurrentTime then
+InfoColour ("black")
+Info (CurrentTime , " ")
+end
+
+--Adding Extra Spacing
+InfoColour ("black")
+Info (" | ")
+
+--Walking/Running Status
+InfoColour ("black")
+if CurrentSpeed == "walking" then
+-- do nothing
+elseif CurrentSpeed == "running" then
+InfoColour ("firebrick")
+Info (CurrentSpeed, " ")
+elseif CurrentSpeed == "sneaking" then
+InfoColour ("mediumvioletred")
+Info (CurrentSpeed, " ")
+elseif CurrentSpeed then
+InfoColour ("black")
+Info (CurrentSpeed, " ")
+end
+
+--Armed/Unarmed Status
+InfoColour ("black")
+if CurrentArmed == "armed" then
+InfoColour ("firebrick")
+Info (CurrentArmed, " ")
+elseif CurrentArmed == "unarmed" then
+-- do nothing
+elseif CurrentArmed then
+InfoColour ("black")
+Info (CurrentArmed, " ")
+end
+
+--Encumbrance
+InfoColour ("black")
+Info (CurrentEncumbrance, " ")
+
+--Position. I.e. Standing or Fighting:Target Status
+InfoColour ("black")
+if CurrentPosition == "Fighting" then
+InfoColour ("firebrick")
+elseif CurrentPosition == "sleeping" then
+InfoColour ("mediumvioletred")
+elseif CurrentPosition == "resting" then
+InfoColour ("darkblue")
+elseif CurrentPosition == "sitting" then
+InfoColour ("darkgreen")
+elseif CurrentPosition then
+InfoColour ("black")
+end
+Info (CurrentPosition, " ")
+
+--Riding Status
+InfoColour ("black")
+if CurrentRiding == "none" then
+-- do nothing
+elseif CurrentRiding then
+Info ("Riding: ",CurrentRiding," ")
+end
+
+end --- end detailed infobar ---
+
+function DescriptiveInfobar(thename, theoutput, wildcards)
+
+local CurrentAccent
+CurrentAccent = wildcards [1]
+local CurrentLanguage
+CurrentLanguage = wildcards [2]
+local CurrentMood
+CurrentMood = wildcards [3]
+local CurrentRiding
+CurrentRiding = wildcards [4]
+local CurrentTime
+CurrentTime = wildcards [5]
+local CurrentEncumbrance
+CurrentEncumbrance = wildcards [6]
+local CurrentArmed
+CurrentArmed = wildcards [7]
+local CurrentSpeed
+CurrentSpeed = wildcards [8]
+local CurrentHealth
+CurrentHealth = tonumber(wildcards [9])
+local CurrentHealthMax
+CurrentHealthMax = tonumber(wildcards [10])
+local CurrentStun
+CurrentStun = tonumber(wildcards [11])
+local CurrentStunMax
+CurrentStunMax = tonumber(wildcards [12])
+local CurrentStamina
+CurrentStamina = tonumber(wildcards [13])
+local CurrentStaminaMax
+CurrentStaminaMax = tonumber(wildcards [14])
+local CurrentMana
+CurrentMana = tonumber(wildcards [15])
+local CurrentManaMax
+CurrentManaMax = tonumber(wildcards [16])
+local CurrentPosition
+CurrentPosition = wildcards [17]
+local DisplayMana
+DisplayMana = wildcards [18]-- string used to toggle mana display
+local CurrentFocus
+CurrentFocus = tonumber(wildcards [19])--used by default.
+local CurrentFocusMax
+CurrentFocusMax = tonumber(wildcards [20])--used by default.
+
+
+--Setting up default look
+InfoClear ()
+InfoBackground(defaultBg)
+InfoColour(defaultCol)
+InfoFont ("",defaultSize,1)
+Info ("You're ")
+
+--CurrentHealth
+        if (CurrentHealth/CurrentHealthMax) < 5/100 then
+                InfoColour ("crimson")
+                Info ("at Death's door, ")
+        elseif (CurrentHealth/CurrentHealthMax) < 15/100 then
+                InfoColour ("crimson")
+                Info ("nearly dead, ")
+        elseif (CurrentHealth/CurrentHealthMax) < 30/100 then
+                InfoColour ("firebrick")
+                Info ("dying, ")
+        elseif (CurrentHealth/CurrentHealthMax) < 66/100 then
+                InfoColour ("mediumvioletred")
+                Info ("damaged, ")
+        elseif (CurrentHealth/CurrentHealthMax) < 85/100 then
+                InfoColour ("darkgreen")
+                Info ("hurting, ")
+        elseif (CurrentHealth/CurrentHealthMax) < 100/100 then
+                InfoColour ("black")
+                Info ("mostly unharmed, ")
+end
+
+--CurrentMana
+        if (CurrentMana/CurrentManaMax) < 9/100 then
+                InfoColour ("crimson")
+                Info ("emptied, ")
+        elseif (CurrentMana/CurrentManaMax) < 15/100 then
+                InfoColour ("crimson")
+                Info ("nearly tapped, ")
+        elseif (CurrentMana/CurrentManaMax) < 35/100 then
+                InfoColour ("firebrick")
+                Info ("harmless, ")
+        elseif (CurrentMana/CurrentManaMax) < 45/100 then
+                InfoColour ("firebrick")
+                Info ("weakened, ")
+        elseif (CurrentMana/CurrentManaMax) < 55/100 then
+                InfoColour ("mediumvioletred")
+                Info ("half yourself, ")
+        elseif (CurrentMana/CurrentManaMax) < 60/100 then
+                InfoColour ("darkgreen")
+                Info ("somewhat strong, ")
+        elseif (CurrentMana/CurrentManaMax) < 75/100 then
+                InfoColour ("darkgreen")
+                Info ("potent, ")
+        elseif (CurrentMana/CurrentManaMax) < 100/100 then
+                InfoColour ("black")
+                Info ("brimming with power, ")
+end
+
+---CurrentStamina
+        if (CurrentStamina/CurrentStaminaMax) < 5/100 then
+                InfoColour ("crimson")
+                Info ("done for, ")
+        elseif (CurrentStamina/CurrentStaminaMax) < 15/100 then
+                InfoColour ("crimson")
+                Info ("practically crawling, ")
+        elseif (CurrentStamina/CurrentStaminaMax) < 35/100 then
+                InfoColour ("firebrick")
+                Info ("exhausted, ")
+        elseif (CurrentStamina/CurrentStaminaMax) < 65/100 then
+                InfoColour ("mediumvioletred")
+                Info ("wearing down, ")
+        elseif (CurrentStamina/CurrentStaminaMax) < 80/100 then
+                InfoColour ("darkgreen")
+                Info ("lightly fatigued, ")
+end
+
+--CurrentStun
+        if (CurrentStun/CurrentStunMax) < 5/100 then
+                InfoColour ("crimson")
+                Info ("seeing only black, ")
+        elseif (CurrentStun/CurrentStunMax) < 15/100 then
+                InfoColour ("crimson")
+                Info ("nearly unconcious, ")
+        elseif (CurrentStun/CurrentStunMax) < 30/100 then
+                InfoColour ("firebrick")
+                Info ("senseless, ")
+        elseif (CurrentStun/CurrentStunMax) < 45/100 then
+                InfoColour ("mediumvioletred")
+                Info ("stunned, ")
+        elseif (CurrentStun/CurrentStunMax) < 65/100 then
+                InfoColour ("darkgreen")
+                Info ("lightly stunned, ")
+end
+
+--CurrentFocus
+        if (CurrentFocus/CurrentFocusMax) < 5/100 then
+                InfoColour ("crimson")
+                Info ("dumbstruck")
+        elseif (CurrentFocus/CurrentFocusMax) < 15/100 then
+                InfoColour ("crimson")
+                Info ("nearly dumbstruck, ")
+        elseif (CurrentFocus/CurrentFocusMax) < 30/100 then
+                InfoColour ("firebrick")
+                Info ("mentally wracked, ")
+        elseif (CurrentFocus/CurrentFocusMax) < 45/100 then
+                InfoColour ("mediumvioletred")
+                Info ("woozy, ")
+        elseif (CurrentFocus/CurrentFocusMax) < 65/100 then
+                InfoColour ("darkgreen")
+                Info ("dizzy, ")
+end
+
+--Armed/Unarmed Status
+InfoColour ("black")
+        if CurrentArmed == "armed" then
+                InfoColour ("firebrick")
+                Info ("armed, ")
+        elseif CurrentArmed == "unarmed" then
+                InfoColour ("black")
+                Info ("unarmed, ")
+end
+
+--Riding
+InfoColour ("black")
+        if Riding then
+                Info ("mounted, ")
+        else 
+                Info ("")
+end
+
+
+--Walking/Running Status
+InfoColour ("black")
+Info ("and set for ")
+        if CurrentSpeed == "running" then
+                InfoColour ("firebrick")
+        elseif CurrentSpeed == "sneaking" then
+                InfoColour ("mediumvioletred")
+        elseif CurrentSpeed then
+                InfoColour ("black")
+end
+Info (CurrentSpeed, ". ")
+
+
+--Position. I.e. Standing or Fighting:Target Status
+InfoColour ("black")
+Info ("Also, you're ")
+if CurrentPosition == "Fighting" then
+InfoColour ("firebrick")
+elseif CurrentPosition == "sleeping" then
+InfoColour ("mediumvioletred")
+elseif CurrentPosition == "resting" then
+InfoColour ("darkblue")
+elseif CurrentPosition == "sitting" then
+InfoColour ("darkgreen")
+elseif CurrentPosition then
+InfoColour ("black")
+end
+Info (CurrentPosition, ". ")
+
+--Time of Day
+InfoColour ("black")
+Info ("It's ")
+if CurrentTime == "dusk" then
+InfoColour ("firebrick")
+Info (CurrentTime, " ")
+elseif CurrentTime == "late afternoon" then
+InfoColour ("mediumvioletred")
+Info (CurrentTime , " ")
+elseif CurrentTime == "unknown" then
+InfoColour ("black")
+Info ("underground", " ")
+elseif CurrentTime then
+InfoColour ("black")
+Info (CurrentTime , ". ")
+end
+
+end --- end descriptive infobar ---
+
+-- http://www.luafaq.org/
+
+]]>
+</script>
+
+
+</muclient>
